@@ -49,6 +49,7 @@ coverage.xml
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # mypy
 .mypy_cache/
