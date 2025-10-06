@@ -55,6 +55,8 @@ nest_asyncio.apply()
 
 # Models that are known to not support tool calling
 MODELS_WITHOUT_TOOL_CALLING = [
+    "sonar",
+    "sonar-reasoning",
     "sonar-pro",
     "sonar-8x7b-online",
     "sonar-32k-online",
