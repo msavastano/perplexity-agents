@@ -1,0 +1,9 @@
+# Minimal requirements inferred from agent.py
+openai>=1.0.0
+nest_asyncio
+python-dotenv
+openai-agents
+
+
+# Optional / dev
+# pytest
