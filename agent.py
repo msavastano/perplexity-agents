@@ -49,9 +49,18 @@ def get_weather(city: str):
 # Import nest_asyncio to support nested event loops
 import nest_asyncio
 
-# Apply the nest_asyncio patch to enable running asyncio.run() 
+# Apply the nest_asyncio patch to enable running asyncio.run()
 # even if an event loop is already running.
 nest_asyncio.apply()
+
+# Models that are known to not support tool calling
+MODELS_WITHOUT_TOOL_CALLING = [
+    "sonar",
+    "sonar-reasoning",
+    "sonar-pro",
+    "sonar-8x7b-online",
+    "sonar-32k-online",
+]
 
 async def main():
     """
@@ -60,82 +69,30 @@ async def main():
     This function creates an Agent with a custom model and function tools,
     then runs a query to get the weather in Tokyo.
     """
+    # Conditionally select tools based on the model's capabilities.
+    # This is a more robust method than reactive error handling.
+    tools = []
+    if MODEL_NAME not in MODELS_WITHOUT_TOOL_CALLING:
+        tools.append(get_weather)
+    else:
+        print(f"[info] model {MODEL_NAME!r} does not support tool calling; running without tools.")
+
     # Create an Agent instance with:
     # - A name ("Assistant")
     # - Custom instructions ("Be precise and concise.")
     # - A model built from OpenAIChatCompletionsModel using our client and model name.
-    # - A list of tools; here, only get_weather is provided.
+    # - A list of tools (which may be empty).
     agent = Agent(
         name="Assistant",
         instructions="Be precise and concise.",
         model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
-        tools=[get_weather],
+        tools=tools,
     )
 
-    # Execute the agent with the sample query. Wrap in a timeout so the
-    # program doesn't hang indefinitely if the model or network is slow.
+    # Execute the agent with the sample query.
     query = "What's the weather in Tokyo?"
     print(f"[debug] running agent with model={MODEL_NAME!r}, base_url={BASE_URL!r}")
-
-    # Try running the agent normally. Some Perplexity sonar models (for
-    # example `sonar` / `sonar-reasoning`) do not support function/tool
-    # calling via the Chat Completions API and will return a 400 error
-    # like: "Tool calling is not supported for this model". Detect that
-    # case and automatically retry the run without tools so you still get
-    # a useful text response.
-    try:
-        result = await Runner.run(agent, query)
-    except Exception as e:
-        # Try to robustly detect the "tool calling not supported" error
-        # by inspecting exception attributes and attempting to parse any
-        # JSON payload embedded in the exception string.
-        import json
-        import re
-
-        def _extract_error_message(exc: Exception) -> str:
-            # 1) If the exception has a `response` attribute, try to inspect it
-            resp = getattr(exc, "response", None)
-            if resp is not None:
-                # If it's already a dict-like object, try to get the nested message
-                try:
-                    if isinstance(resp, dict):
-                        return resp.get("error", {}).get("message", str(resp))
-                    # If it's a string or bytes, return it
-                    if isinstance(resp, (str, bytes)):
-                        return resp.decode() if isinstance(resp, bytes) else resp
-                except Exception:
-                    # Fall through to string parsing
-                    pass
-
-            # 2) Fallback: try to parse JSON embedded in the exception string
-            s = str(exc)
-            # Look for the first JSON object in the string
-            m = re.search(r"\{.*\}", s)
-            if m:
-                try:
-                    obj = json.loads(m.group(0))
-                    return obj.get("error", {}).get("message", s)
-                except Exception:
-                    # Not JSON after all
-                    return s
-
-            # 3) Nothing else worked; return the plain string
-            return s
-
-        err_msg = _extract_error_message(e) or ""
-        if "tool calling" in err_msg.lower() or "tools are not supported" in err_msg.lower():
-            print("[warning] model does not support tool calling; retrying without tools...")
-            # Create a copy of the agent that doesn't include tools and retry
-            agent_no_tools = Agent(
-                name=agent.name,
-                instructions=agent.instructions,
-                model=agent.model,
-                tools=[],
-            )
-            result = await Runner.run(agent_no_tools, query)
-        else:
-            # Re-raise if it's an unexpected error so it surfaces normally
-            raise
+    result = await Runner.run(agent, query)
 
     # Print the final output from the agent.
     print(result.final_output)
