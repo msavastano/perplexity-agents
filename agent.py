@@ -8,7 +8,7 @@ import logging
 from openai import AsyncOpenAI
 
 # Import custom classes and functions from the agents package.
-from agents import Agent, OpenAIResponsesModel, Runner, set_tracing_disabled
+from agents import Agent, OpenAIChatCompletionsModel, OpenAIResponsesModel, Runner, set_tracing_disabled
 from agents.tool import WebSearchTool
 
 # Configure logging
@@ -34,7 +34,7 @@ set_tracing_disabled(disabled=True)
 
 # Define the specialized agents
 
-# Web Searcher Agent - uses OpenAIResponsesModel to support WebSearchTool
+# Web Searcher Agent - uses OpenAIResponsesModel to support the hosted WebSearchTool
 web_searcher_agent = Agent(
     name="WebSearcher",
     instructions="You are a web searcher. Your purpose is to answer questions that require up-to-date information or access to the internet by using the web_search tool.",
@@ -42,22 +42,21 @@ web_searcher_agent = Agent(
     tools=[WebSearchTool()],
 )
 
-# Basic Agent - uses OpenAIResponsesModel for consistency
+# Basic Agent - uses the standard ChatCompletions model
 basic_agent = Agent(
     name="BasicAgent",
     instructions="You are a helpful assistant. Your purpose is to answer general questions, have conversations, or perform tasks that do not require web access.",
-    model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
+    model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
 )
 
-# Orchestrator Agent
-# This agent's purpose is to decide which specialized agent to hand off to.
+# Orchestrator Agent - uses the standard ChatCompletions model
 orchestrator_agent = Agent(
     name="Orchestrator",
     instructions=(
         "You are an orchestrator. Your job is to analyze the user's query and decide which agent is best suited to answer it. "
         "Based on the query, you must call the appropriate agent (`WebSearcher` or `BasicAgent`) to handle the request."
     ),
-    model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
+    model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
     handoffs=[web_searcher_agent, basic_agent],
 )
 
