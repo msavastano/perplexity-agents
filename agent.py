@@ -36,8 +36,7 @@ set_tracing_disabled(disabled=True)
 # Web Searcher Agent
 web_searcher_agent = Agent(
     name="WebSearcher",
-    description="Use this agent for questions that require up-to-date information or access to the internet.",
-    instructions="You are a web searcher. Use the web_search tool to answer the user's question.",
+    instructions="You are a web searcher. Your purpose is to answer questions that require up-to-date information or access to the internet by using the web_search tool.",
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
     tools=[{"type": "web_search"}],
 )
@@ -45,19 +44,19 @@ web_searcher_agent = Agent(
 # Basic Agent
 basic_agent = Agent(
     name="BasicAgent",
-    description="Use this agent for general questions, conversation, or tasks that do not require web access.",
-    instructions="You are a helpful assistant. Answer the user's question directly.",
+    instructions="You are a helpful assistant. Your purpose is to answer general questions, have conversations, or perform tasks that do not require web access.",
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
 )
 
 # Orchestrator Agent
 # This agent's purpose is to decide which specialized agent to hand off to.
 # The `handoffs` parameter makes the other agents available as tools for delegation.
+# The orchestrator will use the name and instructions of the handoff agents to decide.
 orchestrator_agent = Agent(
     name="Orchestrator",
     instructions=(
         "You are an orchestrator. Your job is to analyze the user's query and decide which agent is best suited to answer it. "
-        "Based on the query, you must call the appropriate agent to handle the request."
+        "Based on the query, you must call the appropriate agent (`WebSearcher` or `BasicAgent`) to handle the request."
     ),
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
     handoffs=[web_searcher_agent, basic_agent],
