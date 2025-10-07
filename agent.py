@@ -9,6 +9,7 @@ from openai import AsyncOpenAI
 
 # Import custom classes and functions from the agents package.
 from agents import Agent, OpenAIChatCompletionsModel, Runner, set_tracing_disabled
+from agents.tools import web_search_tool
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +39,7 @@ web_searcher_agent = Agent(
     name="WebSearcher",
     instructions="You are a web searcher. Your purpose is to answer questions that require up-to-date information or access to the internet by using the web_search tool.",
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
-    tools=[{"type": "web_search"}],
+    tools=[web_search_tool],
 )
 
 # Basic Agent
