@@ -8,7 +8,7 @@ import logging
 from openai import AsyncOpenAI
 
 # Import custom classes and functions from the agents package.
-from agents import Agent, OpenAIChatCompletionsModel, OpenAIResponsesModel, Runner, set_tracing_disabled
+from agents import Agent, OpenAIResponsesModel, Runner, set_tracing_disabled
 from agents.tool import WebSearchTool
 
 # Configure logging
@@ -34,29 +34,32 @@ set_tracing_disabled(disabled=True)
 
 # Define the specialized agents
 
-# Web Searcher Agent - uses OpenAIResponsesModel to support the hosted WebSearchTool
+# Web Searcher Agent - uses OpenAIResponsesModel to support WebSearchTool
 web_searcher_agent = Agent(
     name="WebSearcher",
-    instructions="You are a web searcher. Your purpose is to answer questions that require up-to-date information or access to the internet by using the web_search tool.",
+    instructions=(
+        "You are a web searcher. Your purpose is to answer questions that require up-to-date information or access to the internet. "
+        "You MUST use the web_search tool to answer the user's question. Do not answer directly. You must call the tool."
+    ),
     model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
     tools=[WebSearchTool()],
 )
 
-# Basic Agent - uses the standard ChatCompletions model
+# Basic Agent - uses OpenAIResponsesModel for consistency during handoffs
 basic_agent = Agent(
     name="BasicAgent",
     instructions="You are a helpful assistant. Your purpose is to answer general questions, have conversations, or perform tasks that do not require web access.",
-    model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
+    model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
 )
 
-# Orchestrator Agent - uses the standard ChatCompletions model
+# Orchestrator Agent - uses OpenAIResponsesModel for consistency during handoffs
 orchestrator_agent = Agent(
     name="Orchestrator",
     instructions=(
         "You are an orchestrator. Your job is to analyze the user's query and decide which agent is best suited to answer it. "
         "Based on the query, you must call the appropriate agent (`WebSearcher` or `BasicAgent`) to handle the request."
     ),
-    model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
+    model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
     handoffs=[web_searcher_agent, basic_agent],
 )
 
