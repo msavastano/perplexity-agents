@@ -25,7 +25,7 @@ if not BASE_URL or not API_KEY or not MODEL_NAME:
     )
 
 # Initialize the custom OpenAI async client with the specified BASE_URL and API_KEY.
-client = AsyncOpenAI(base_url=BASE_URL, api_key=API_KEY)
+client = AsyncOpenAI(api_key=API_KEY)
 
 # Disable tracing to avoid using a platform tracing key; adjust as needed.
 set_tracing_disabled(disabled=True)
