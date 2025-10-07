@@ -8,7 +8,7 @@ import logging
 from openai import AsyncOpenAI
 
 # Import custom classes and functions from the agents package.
-from agents import Agent, OpenAIChatCompletionsModel, Runner, Handoff, set_tracing_disabled
+from agents import Agent, OpenAIChatCompletionsModel, Runner, set_tracing_disabled
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +36,7 @@ set_tracing_disabled(disabled=True)
 # Web Searcher Agent
 web_searcher_agent = Agent(
     name="WebSearcher",
+    description="Use this agent for questions that require up-to-date information or access to the internet.",
     instructions="You are a web searcher. Use the web_search tool to answer the user's question.",
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
     tools=[{"type": "web_search"}],
@@ -44,32 +45,22 @@ web_searcher_agent = Agent(
 # Basic Agent
 basic_agent = Agent(
     name="BasicAgent",
+    description="Use this agent for general questions, conversation, or tasks that do not require web access.",
     instructions="You are a helpful assistant. Answer the user's question directly.",
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
 )
 
-# Define Handoff tools for the orchestrator
-handoff_to_web_searcher = Handoff(
-    name="web_searcher_handoff",
-    description="Use this for questions that require up-to-date information or access to the internet.",
-    agent=web_searcher_agent,
-)
-
-handoff_to_basic_agent = Handoff(
-    name="basic_agent_handoff",
-    description="Use this for general questions, conversation, or tasks that do not require web access.",
-    agent=basic_agent,
-)
-
 # Orchestrator Agent
+# This agent's purpose is to decide which specialized agent to hand off to.
+# The `handoffs` parameter makes the other agents available as tools for delegation.
 orchestrator_agent = Agent(
     name="Orchestrator",
     instructions=(
         "You are an orchestrator. Your job is to analyze the user's query and decide which agent is best suited to answer it. "
-        "Based on the query, you must call either the 'web_searcher_handoff' or the 'basic_agent_handoff' tool."
+        "Based on the query, you must call the appropriate agent to handle the request."
     ),
     model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
-    tools=[handoff_to_web_searcher, handoff_to_basic_agent],
+    handoffs=[web_searcher_agent, basic_agent],
 )
 
 async def main():
@@ -80,7 +71,7 @@ async def main():
 
     logger.info(f"Running orchestrator with model={MODEL_NAME!r}")
 
-    # Run the orchestrator, which will hand off to the appropriate agent
+    # Run the orchestrator, which will automatically hand off to the appropriate agent
     result = await Runner.run(orchestrator_agent, query)
 
     # Print the final output from the agent.
