@@ -1,6 +1,10 @@
 # Import necessary standard libraries
 import asyncio  # For running asynchronous code
 import os       # To access environment variables
+import base64
+import tempfile
+import subprocess
+import sys
 from dotenv import load_dotenv
 import logging
 
@@ -8,7 +12,7 @@ import logging
 from openai import AsyncOpenAI
 
 # Import custom classes and functions from the agents package.
-from agents import Agent, OpenAIResponsesModel, Runner, set_tracing_disabled
+from agents import Agent, OpenAIResponsesModel, Runner, set_tracing_disabled, ImageGenerationTool
 from agents.tool import WebSearchTool
 
 # Configure logging
@@ -52,16 +56,38 @@ basic_agent = Agent(
     model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
 )
 
+# Image Generator Agent - uses OpenAIResponsesModel to support ImageGenerationTool
+image_generator_agent = Agent(
+    name="ImageGenerator",
+    instructions=(
+        "You are an image generator. Your purpose is to create images based on user descriptions. "
+        "You MUST use the image_generation tool to create the image. Do not answer directly. You must call the tool."
+    ),
+    model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
+    tools=[ImageGenerationTool()],
+)
+
 # Orchestrator Agent - uses OpenAIResponsesModel for consistency during handoffs
 orchestrator_agent = Agent(
     name="Orchestrator",
     instructions=(
         "You are an orchestrator. Your job is to analyze the user's query and decide which agent is best suited to answer it. "
-        "Based on the query, you must call the appropriate agent (`WebSearcher` or `BasicAgent`) to handle the request."
+        "If the query is about creating or generating an image, you must call `ImageGenerator`. "
+        "Based on the query, you must call the appropriate agent (`WebSearcher`, `BasicAgent`, or `ImageGenerator`) to handle the request."
     ),
     model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
-    handoffs=[web_searcher_agent, basic_agent],
+    handoffs=[web_searcher_agent, basic_agent, image_generator_agent],
 )
+
+def open_file(path: str) -> None:
+    if sys.platform.startswith("darwin"):
+        subprocess.run(["open", path], check=False)  # macOS
+    elif os.name == "nt":  # Windows
+        os.startfile(path)  # type: ignore
+    elif os.name == "posix":
+        subprocess.run(["xdg-open", path], check=False)  # Linux/Unix
+    else:
+        print(f"Don't know how to open files on this platform: {sys.platform}")
 
 async def main():
     """
@@ -77,6 +103,18 @@ async def main():
     # Print the final output from the agent.
     logger.info("Orchestration complete.")
     print(result.final_output)
+    for item in result.new_items:
+            if (
+                item.type == "tool_call_item"
+                and item.raw_item.type == "image_generation_call"
+                and (img_result := item.raw_item.result)
+            ):
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                    tmp.write(base64.b64decode(img_result))
+                    temp_path = tmp.name
+
+                # Open the image
+                open_file(temp_path)
 
 # Standard boilerplate to run the async main() function.
 if __name__ == "__main__":
