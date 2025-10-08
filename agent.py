@@ -64,7 +64,9 @@ image_generator_agent = Agent(
         "You MUST use the image_generation tool to create the image. Do not answer directly. You must call the tool."
     ),
     model=OpenAIResponsesModel(model=MODEL_NAME, openai_client=client),
-    tools=[ImageGenerationTool()],
+    tools=[ImageGenerationTool(
+                tool_config={"type": "image_generation", "quality": "low"},
+            )],
 )
 
 # Orchestrator Agent - uses OpenAIResponsesModel for consistency during handoffs
